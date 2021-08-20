@@ -1,0 +1,7 @@
+numpy
+pandas
+ipython
+nb_black
+torch
+git+https://github.com/krzpiesiewicz/timeseries
+git+https://github.com/krzpiesiewicz/pytorch-fit
