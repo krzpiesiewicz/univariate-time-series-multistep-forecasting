@@ -1,6 +1,3 @@
-import os
-import sys
-
 import numpy as np
 
 from average_scoring import average_scores
@@ -49,9 +46,9 @@ def grid_search_hyper_params(
             print(f"\nTerminating: more than {max_fails} fails")
             break
         try:
-            old_stderr = sys.stderr
-            sys.stderr = open(os.devnull, "w")
             model = create_model(**hyper_params_values, **model_params)
+            #             old_stderr = sys.stderr
+            #             sys.stderr = open(os.devnull, "w")
             fit_fun(model, ts, train_intv, **fit_params)
             score = score_fun(model, ts, val_intv, **score_params)
         except:
@@ -59,15 +56,14 @@ def grid_search_hyper_params(
             fails += 1
         finally:
             pass
-            sys.stderr.close()
-            sys.stderr = old_stderr
+        #             sys.stderr.close()
+        #             sys.stderr = old_stderr
         scores.append((score, hyper_params_values))
         if score < best_score:
             best_score = score
             best_valuation = hyper_params_values
         print(
-            f"\r{i + 1}/{n}, best_score: {best_score}, valuation: "
-            f"{best_valuation}   ",
+            f"\r{i + 1}/{n}, best_score: {best_score:.6f}, valuation: {best_valuation}   ",
             end="",
         )
     print("")
