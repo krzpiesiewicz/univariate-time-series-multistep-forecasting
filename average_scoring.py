@@ -17,6 +17,7 @@ def average_scores(
         trans=None,
         score_ts=None,
         original_ts=None,
+        seasonal_ts_seq=None,
         return_preds=False,
         return_all_scores=False,
         mute=False,
@@ -26,7 +27,7 @@ def average_scores(
         assert original_ts is not None
     if score_ts is None:
         score_ts = original_ts if original_ts is not None else ts
-    index = score_intv.view(ts).index
+    index = score_intv.view(score_ts).index
     all_scores = {scoring_name: [] for scoring_name in scorings}
     saved_preds = []
 
@@ -55,9 +56,9 @@ def average_scores(
         last_time = time.time()
         begin = index[i]
         end = index[i + n_steps]
-        intv = tss.Interval(ts, begin, end)
+        intv = tss.Interval(score_ts, begin, end)
         ts_true = intv.view(score_ts)
-        ts_pred = model.predict(ts, intv, original_ts=original_ts)
+        ts_pred = model.predict(ts, intv, original_ts=original_ts, seasonal_ts_seq=seasonal_ts_seq)
         if trans is not None:
             ts_true = intv.view(score_ts)
             true_prevs = intv.prev_view(original_ts)
@@ -73,6 +74,7 @@ def average_scores(
             model.update(ts,
                          tss.Interval(ts, index[i], index[i + n_steps_jump]),
                          original_ts=original_ts,
+                         seasonal_ts_seq=seasonal_ts_seq,
                          update_params=update_params)
         past_examples += 1
         if not mute:

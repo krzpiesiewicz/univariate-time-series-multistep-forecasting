@@ -61,22 +61,23 @@ class Results():
     def __load_scores_table__(self):
         if os.path.exists(self.scores_table_path):
             self.scores_table_df = pd.read_csv(self.scores_table_path,
-                                               header=[0], index_col=[0])
+                                               header=[0], index_col=[0, 1])
             self.scores_table_df.columns = self.scores_table_df.columns.set_names(
                 ["Scoring"])
         else:
             self.scores_table_df = pd.DataFrame(
                 data=[],
-                index=pd.Index([]).set_names(["Model"]),
-                columns=pd.Index([])
+                index=pd.MultiIndex.from_arrays([[]] * 2).set_names(["Model", "Version"]),
+                columns=pd.Index([]).set_names(["Metric"]),
             )
             table_title = f"{self.data_type}: {self.data_name} – Mean {self.__mode_name__()} Scores of Models"
             self.scores_table_df.style.set_caption(table_title)
 
-    def __add_model__(self, model_name):
-        if model_name not in self.scores_table_df.index:
-            self.scores_table_df = self.scores_table_df.append(
-                pd.Series([], name=model_name))
+    def __add_model__(self, model_name, model_version):
+        if (model_name, model_version) not in self.scores_table_df.index:
+            self.scores_table_df.loc[(model_name, model_version), :] = np.nan
+#             self.scores_table_df = self.scores_table_df.append(
+#                 pd.Series([], name=(model_name, model_version)))
 
     def __add_scoring__(self, scoring_name):
         if scoring_name not in self.scores_table_df.columns:
@@ -135,17 +136,18 @@ class Results():
         path = self.scorings_path
         path = self.__add_dir_to_path_and_ensure__(path, self.data_type)
         path = self.__add_dir_to_path_and_ensure__(path, self.data_name)
+        path = self.__add_dir_to_path_and_ensure__(path, self.mode)
         np.save(self.__get_model_scores_path__(path), all_scores)
 
         if mean_scores is None:
             mean_scores = self.calc_mean_scores(all_scores)
 
         self.__load_scores_table__()
-        self.__add_model__(self.model_name)
+        self.__add_model__(self.model_name, self.model_version)
         scorings_names = mean_scores.keys()
         for scoring_name in scorings_names:
             self.__add_scoring__(scoring_name)
-            self.scores_table_df.loc[self.model_name, scoring_name] = \
+            self.scores_table_df.loc[(self.model_name, self.model_version), scoring_name] = \
                 mean_scores[scoring_name]
         self.__save_scores_table__()
 
@@ -162,6 +164,7 @@ class Results():
         path = self.scorings_path
         path = self.__add_dir_to_path_and_raise__(path, self.data_type)
         path = self.__add_dir_to_path_and_raise__(path, self.data_name)
+        path = self.__add_dir_to_path_and_ensure__(path, self.mode)
         all_scores = np.load(self.__get_model_scores_path__(path),
                              allow_pickle="TRUE").item()
 

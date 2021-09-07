@@ -88,11 +88,11 @@ class ForexGBPUSDData(TimeSeriesData):
                 pass
             date += timedelta(days=1)
 
-        self.ts = forex_gpdusd_data["Close"].copy()
+        self.ts = forex_gpdusd_data["Close"].copy()[datetime(2021, 7, 25, 23):]
         del forex_gpdusd_data
 
     def __set_competition_params__(self):
-        train_datetime = self.ts.index[500]
+        train_datetime = datetime(2021, 7, 26)
         val_datetime = datetime(2021, 8, 13)
         test_datetime = datetime(2021, 8, 13, 21, 59)
         test_end_datetime = self.ts.index[-1] + timedelta(minutes=1)
@@ -151,7 +151,7 @@ class WebsiteVisitsData(TimeSeriesData):
         del website_data
 
     def __set_competition_params__(self):
-        train_datetime = self.ts.index[500]
+        train_datetime = self.ts.index[150]
         val_datetime = datetime(2018, 9, 1)  # Monday
         test_datetime = datetime(2019, 5, 7)  # Monday
         test_end_datetime = self.ts.index[-1] + timedelta(days=1)

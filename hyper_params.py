@@ -1,5 +1,8 @@
+import sys
+import time
 import numpy as np
 
+from utils.timing import timedelta_str
 from average_scoring import average_scores
 
 
@@ -21,13 +24,65 @@ def grid_search_hyper_params(
         fit_params={},
         score_fun=None,
         score_params={},
+        max_line_len=111
 ):
+    assert best is None or type(best) is int
+    
     def default_fit_fun(model, ts, train_intv, **fit_params):
         model.fit(ts, train_intv, **fit_params)
 
     def default_score_fun(model, ts, val_intv, **score_params):
         scores = average_scores(model, ts, val_intv, **score_params)
         return list(scores.values())[0]
+    
+    def valuation_str(valuation, l=120):
+        
+        if valuation is None:
+            return "None"
+        
+        def dct_to_string(dct):
+            buff = ""
+            first = True
+            for key, value in dct.items():
+                if not first:
+                    buff += ", "
+                first = False
+                buff += f"{key}={value}"
+            return buff
+        
+        original_str = dct_to_string(valuation)
+        if len(original_str) <= l:
+            return original_str
+        
+        dct_with_strs = {}
+        for key, value in valuation.items():
+            if type(value) is int:
+                value = f"{value}"
+            else:
+                if type(value) is float:
+                    value = "{value:.2f}"
+            dct_with_strs[key] = value
+            
+        long_str = dct_to_string(dct_with_strs)
+        if len(long_str) <= l:
+            return long_str
+        
+        simple_dct = {}
+        for key, value in valuation.items():
+            if len(key) > 8:
+                key = key = f"{key[:4]}..{key[-2:]}"
+            new_key = key
+            i = 1
+            while new_key in simple_dct:
+                new_key = f"{key}_{i}"
+                i += 1
+            simple_dct[new_key] = value
+        
+        short_str = dct_to_string(simple_dct)
+        if len(short_str) > l:
+            short_str = short_str[:l-3] + "..."
+        return short_str
+        
 
     if fit_fun is None:
         fit_fun = default_fit_fun
@@ -39,11 +94,19 @@ def grid_search_hyper_params(
         scores = []
     best_score = np.inf
     best_valuation = None
+    
+    past_valuations = []
+    for _, valuation in scores:
+        if valuation not in past_valuations:
+            past_valuations.append(valuation)
+    grid = [valuation for valuation in grid if valuation not in past_valuations]
+    
+    start_time = time.time()
     n = len(grid)
-    print(f"0/{n}", end="")
+    print(f"0/{n}", end="", file=sys.stderr)
     for i, hyper_params_values in enumerate(grid):
         if max_fails is not None and fails > max_fails:
-            print(f"\nTerminating: more than {max_fails} fails")
+            print(f"\nTerminating: more than {max_fails} fails", file=sys.stderr)
             break
         try:
             model = create_model(**hyper_params_values, **model_params)
@@ -55,19 +118,27 @@ def grid_search_hyper_params(
             score = np.inf
             fails += 1
         finally:
-            pass
+            past_valuations.append(hyper_params_values)
         #             sys.stderr.close()
         #             sys.stderr = old_stderr
         scores.append((score, hyper_params_values))
         if score < best_score:
             best_score = score
             best_valuation = hyper_params_values
-        print(
-            f"\r{i + 1}/{n}, best_score: {best_score:.6f}, valuation: {best_valuation}   ",
-            end="",
-        )
-    print("")
+        buff = f"\r{i + 1}/{n}"
+        if start_time is not None:
+            buff += f" ({timedelta_str(time.time() - start_time)})"
+        buff += f" best: {best_score:.6f} ("
+        buff += f"{valuation_str(best_valuation, max_line_len - len(buff) - 1)})"
+        buff += " " * (max_line_len - len(buff))
+        print(buff, end="", file=sys.stderr)
     scores = sorted_scores(scores)
+    best_score, best_valuation = scores[0]
+    buff = f"the best of all: {best_score:.6f} ("
+    buff = f"\r{buff}{valuation_str(best_valuation, max_line_len - len(buff) - 1)})"
+    buff += " " * (max_line_len - len(buff))
+    print(buff, file=sys.stderr)
+    time.sleep(1)
     if best is None:
         return scores
     else:

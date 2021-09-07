@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pmdarima as pm
 import timeseries as tss
-from timeseries.transform import get_smoothed
+from timeseries.transform import get_smoothed, get_interpolated
 
 from models.model import Model
 
@@ -43,37 +43,57 @@ class SarimaModel(Model):
     def update(self, ts, new_interval, new_fit=False, update_params={},
                fit_params={}, **kwargs):
         new_interval = self.__update_ts__(ts, new_interval)
-        if not new_fit:
-            update_params["out_of_sample_size"] = len(
-                new_interval.view(self.ts)) - 1
-            update_params["maxiter"] = 0
-        if len(self.ts) <= self.max_ts_len:
-            if "scoring" in fit_params:
-                update_params["scoring"] = fit_params["scoring"]
-            self.model.update(new_interval.view(self.ts), **update_params)
-        else:
-            self.ts = self.ts[self.ts.index[-self.retrain_ts_len:]]
-            start_params = self.model.params()
-            self.constructor_params[
-                "out_of_sample_size"] = 0  # len(self.ts) - 1
-            self.constructor_params["maxiter"] = 0
-            self.constructor_params["start_params"] = start_params
-            self.__create_inner_model__()
-            self.fit(self.ts, tss.Interval(self.ts), fit_params=fit_params)
+        if new_interval is not None:
+            if not new_fit:
+                update_params["out_of_sample_size"] = len(
+                    new_interval.view(self.ts)) - 1
+                update_params["maxiter"] = 0
+            if len(self.ts) <= self.max_ts_len:
+                if "scoring" in fit_params:
+                    update_params["scoring"] = fit_params["scoring"]
+                self.model.update(new_interval.view(self.ts), **update_params)
+            else:
+                self.ts = self.ts[self.ts.index[-self.retrain_ts_len:]]
+                start_params = self.model.params()
+                self.constructor_params[
+                    "out_of_sample_size"] = 0  # len(self.ts) - 1
+                self.constructor_params["maxiter"] = 0
+                self.constructor_params["start_params"] = start_params
+                self.__create_inner_model__()
+                self.fit(self.ts, tss.Interval(self.ts), fit_params=fit_params)
 
-    def predict(self, ts, pred_interval, original_ts=None, is_train=False):
-        pred_ts = pred_interval.view()
-        index = pred_ts.index
-        if is_train:
-            pred_values = self.model.predict_in_sample()
+    def predict(self, ts, pred_interval, original_ts=None, **kwargs):
+        target_index = pred_interval.index()
+        n = len(target_index)
+        index = pred_interval.index(ts)
+#         print(f"index: {index}")
+        m = len(index)
+        if n == m:
+            pred_values = self.model.predict(m)
+            pred = pd.Series(pred_values, target_index, name=pred_interval.ts.name)
+            if self.detrans is not None:
+                assert original_ts is not None
+                pred = self.detrans.detransform(pred, pred_interval.prev_view(
+                    original_ts))
         else:
-            n = len(index)
-            pred_values = self.model.predict(n)
-        pred = pd.Series(pred_values, index, name=pred_ts.name)
-        if self.detrans is not None:
+            index = pred_interval.index(ts, prevs=1, nexts=1)
+#             print(f"index: {index}")
+#             print(f"index2: {index[-1:]}")
+#             print(f"self.ts: {self.ts.index}")
+            m = len(index)
+            pred_values = np.zeros(m)
+            pred_values[1:] = self.model.predict(m - 1)
+#             print(index)
+#             print(self.ts[index[0:1]])
+#             print(pred_interval.prev_view(original_ts).iloc[:-1])
+            pred_values[0] = self.ts[index[0]]
+            pred = pd.Series(pred_values, index)
+            assert self.detrans is not None
             assert original_ts is not None
-            pred = self.detrans.detransform(pred, pred_interval.prev_view(
-                original_ts))
+            pred = self.detrans.detransform(pred, pred_interval.prev_view(original_ts).iloc[:-1])
+#             print(pred)
+            pred = get_interpolated(pred, pred_interval)
         if self.smoothing_std is not None:
             pred = get_smoothed(pred, self.smoothing_std)
+        pred.name = pred_interval.ts.name
         return pred
