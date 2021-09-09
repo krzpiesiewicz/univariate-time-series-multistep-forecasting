@@ -14,7 +14,7 @@ class SequentialAutoencodingDataset(Dataset):
         steps_back=None,
         original_ts=None,
         original_prevs_len=None,
-        one_more=True,
+        one_more=False,
         teacher_forcing=False,
         input_equal_to_output=False,
         reverse=False,
@@ -108,12 +108,14 @@ class SequentialAutoencodingDataset(Dataset):
         x[:] = self.x[prev_end:end, :]
         x = x.copy()
         if self.teacher_forcing:
-            tf = self.x[
-                end - self.steps_back : end,
+            tf = np.zeros((self.steps_back, self.x.shape[1]), dtype=np.float32)
+            tmp = self.x[
+                end - self.steps_back + 1 : end,
                 :,
             ].astype(np.float32)
             if self.reverse:
-                tf = np.flip(tf, 0).copy()
+                tmp = np.flip(tmp, 0).copy()
+            tf[1:, :] = tmp
             xs = (x, tf)
         else:
             xs = x

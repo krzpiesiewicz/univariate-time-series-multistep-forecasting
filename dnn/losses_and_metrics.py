@@ -20,7 +20,7 @@ class OriginalMetric(Metric):
         self.sum_of_errors = 0
         self.all_samples = 0
 
-    def set_steps(steps):
+    def set_steps(self, steps):
         self.steps = steps
 
     def update_state(self, y_pred, y_true, original_prevs, *args):
