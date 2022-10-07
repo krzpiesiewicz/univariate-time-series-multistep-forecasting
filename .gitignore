@@ -1,6 +1,16 @@
-# not my data
+# data
 data/
 results/
+*.csv.[0-9]
+
+# pytorch models backups
+*.pth
+
+# generated htmls
+html/
+
+# archives
+*.zip
 
 # pycharm
 .idea/

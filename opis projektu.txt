@@ -1,0 +1,57 @@
+Dzień dobry,
+rozmawiałem dzisiaj z p. Marcinem Możejko o moim pomyśle na indywidualny projekt zaliczeniowy, który spotkał się z aprobatą. Więc zostałem przekierowany z tym do Pana.
+
+Jestem na 3. roku matematyki i tworzę pracę licencjacką o dryfie pojęć, adaptacyjnych LSTM-ach i predykcji szeregów czasowych. Chciałbym w tej pracy, oprócz suchego opisywania już istniejących rzeczy, wnieść coś konkretnego od siebie. Przechodząc do rzeczy, zagadnieniem, na którym chciałbym się skupić i do którego chciałbym przeprowadzić praktyczne eksperymenty, jest zaprojektowanie autoencodera dla liczbowych szeregów czasowych jednej zmiennej (jednego modelu dla różnych typów szeregów). Autoencoder opierałby się o LSTM-y (pierwowzór to stos LSTM-ów o rozmiarach zmniejszających się, idąc od dołu i góry do środka stosu). Jego zadaniem byłoby wyuczyć się wychwytywać z okna szeregu czasowego sensowne cechy opisujące szereg (jak wariancja, rodzaj trendu, zmiana różnicowa/logarytmiczna, sezonowość, okresowość itp.) i na ich podstawie odtwarzać dane wejściowe (okno) szeregu. To jest pierwsza część modelu. Natomiast druga część (również oparta o LSTM-y) miałaby przewidywać n kolejnych elementów szeregu czasowego na podstawie surowych danych okna i jego zakodowanych cech (wyników środkowej warstwy autoencoder a).
+
+Kryteriami oceny sensowności modelu byłyby:
+- jakość odtwarzanego przez autoencoder okna szeregu,
+- jakość predykcji kolejnych n kroków dla szeregu czasowego, w którym występuje dryf pojęć skutkujący zmianą określonej cechy (np.zmianą rodzaju trendu czy wzorca sezonowości).
+
+Do treningów i ewaluacji przygotowałbym swój zbiór syntetycznych szeregów czasowych opisanych matematycznie i zwierających dryf pojęć (np. szereg czasowy opisany przez funckję matematyczną zależną od zmiennej ukrytej, która ulega różnym rodzajom zmian: stopniowym, nagłym czy okresowym - analogicznie do rodzajów dryfów pojęć).
+Aby to nie było wyłącznie oderwane od rzeczywistości, taki dataset mógłby zawierać także wygenerowane dane sprzedażowe z sezonowością i naturalnym dryfem produktu na rynku.
+
+Z detali technicznych, moje eksperymenty dotyczyłyby:
+- ręcznej inżynierii cech (w jakim stopniu przetworzyć dane podawane na wejście do sieci, a w jakim zostawić sieci zadanie selekcji cech):
+  * podstawowa selekcja cech; np. różnicowa i/lub logarytmiczna postać stacjonarna szeregu,
+  * embedding pozycyjny (dla okresowości i sezonowości),
+- architektury sieci:
+  * wielkość okna (duże okno zawierające wiele sezonów vs. mniejsze okno z bardziej zaawansowanym embeddingiem pozycyjnym),
+  * liczby i rozmiary warstw,
+  * rodzaje połączeń między warstwami (w tym granularność),
+  * funkcji aktywacji i straty,
+- sposobu uczenia:
+  * oddzielne uczenie autoencodera na wielu różnych szeregach,
+  * naprzemienne uczenie autencodera i predykcyjnej części modelu dla jednego szeregu.
+
+Co Pan o tym sądzi?
+
+Pozdrawiam
+Krzysztof Piesiewicz
+
+PS Ten podział na autoencoder i część predykcyjną ma związek z modelami adaptacyjnymi (działającymi online), w których retrenowane są tylko fragmenty sieci (np. fragmenty cześci predykcyjnej) w stopniu zależącym od zmian błędu modelu.
+
+____________________________________________________________________________________________________________________
+
+Ma Pan tutaj całkowitą rację. Nawet nawet moja próba wprowadzania dryfu pojęć, w tym wypadku dryfu parametrów opisujących cechy szeregu, nie powoduje pozbycia się regularności (co najwyżej zwiększa liczbę faktycznych parametrów). Nawet jeśli zmieniałbym wartości parametrów cech przy użyciu innych syntetycznych szeregów czasowych. Dlatego znajdę dane rzeczywiste (zarówno krótkie jak i długie). Proponuję 3 rodzaje danych:
+mniej regularne dane finansowe, konkretnie notowania giełdowe wciągu dnia lub wieloletnie zakończenia dnia, chociaż przewidywanie notowań giełdowych jako jednowymiarowego szeregu mija się z celem, to może to być dobry przykład danych z występującym dryfem pojęć. Dane łatwe do pobrania zarówno z nowojorskiej jak i warszawskiej giełdy (stooq.com).
+bardziej regularne dane medyczne; np. EEG. W internecie są dostępne darmowe korpusy (https://sccn.ucsd.edu/~arno/fam2data/publicly_available_EEG_data.html).
+kiedyś organizowany był konkurs M3-Competition (https://forecasters.org/resources/time-series-data/m3-competition/), gdzie znajduje się ok. 3000 bardzo krótkich szeregów czasowych (długości 20 -144 wyrazów z oczekiwaną predykcją 6-18 wyrazów). Ten konkurs jest dla mnie interesujący z dwóch powodów:
+dla krótkich szeregów czasowych modele statystyczne zazwyczaj radzą sobie lepiej,
+model Ubera (http://www.cs.columbia.edu/~lierranli/publications/TSW2017_paper.pdf) z autoencoderem, który mnie zainspirował, został przetestowany na tych danych bez tuningu hiperparametrów, osiągając sensowny wynik. Niestety nie odtworzę modelu, gdyż nie mam danych Ubera, w artykule nie szczegółów technicznych modelu oraz nie zajmuję się szacowaniem niepewności, co jest dodatkowym atutem modelu Ubera.
+co Pan sądzi o tych datasetach?
+Rzeczywiście nie napisałem nic na ten temat. Pozwolę sobie przytoczyć fragment planowanego streszczenia mojej pracy licencjackiej:
+Zaproponowany autoencoder jest porównany na danych testowych z prostymi autoencoderami opartymi na LSTM i CNN. Analogiczne porównanie dotyczy całego, zaproponowanego modelu, prostych modeli predykcyjnych korzystających z wyżej wymienionych autoencoderów oraz klasycznego modelu SARIMA. Z uwagi na występujące różnice reprezentacji wejściowych wspomnianych modeli testowe dane wejściowe są indywidualnie sprowadzane do postaci oczekiwanych przez poszczególne modele. Podobnie wynikowa reprezentacja predykcji każdego modelu jest przekształcana do oryginalnej postaci szeregu, na której następuje ocena jakości przy użyciu metryk: SMAPE i RMSPE.
+Tutaj jeszcze dodam kilka szczegółów dotyczących proponowanych modeli benchmarkowych:
+Podstawowy, benchmark, sprawdzający, czy model w ogóle ma sens:
+średnia ostatnich d wyrazów. Wymaga dostrojenia d. Jeśli model działa gorzej niż średnia, to jest po prostu zły,
+mediana median k-elementowych ostatnich n grup wyrazów (wymaga dostrojenia k oraz n). W odróżneniu od średniej jest odporna na outliery.
+Prosty benchmark przewidywania rekursywnego:
+Najbardziej popularny model SARIMA (kiedyś chyba state-of-the-art w przewidywaniu następnego kroku jednowymiarowych szeregów czasowych z krótką historią). Co więcej do modelu SARIMA dostępna jest maszynka, która automatycznie dostraja parametry tego modelu i wybiera transformację do postaci stacjonarnej i znormalizowanej, co pozwoliłoby uniknąć złego benchmarku wynikającego z nieumiejętności posługiwania się tym modelem (https://alkaline-ml.com/pmdarima/modules/generated/pmdarima.arima.auto_arima.html). Aby użyć do przewidywania wielu kroków, trzeba zapętlić przewidywanie następnego kroku na wyplutych wcześniej predykcjach (to powinno powodować sporą kumulację błędów). Można użyć dla krótkich i długich szeregów.
+Prosty benchmark do przewidywania h kroków na raz:
+Dla krótkich szeregów bardzo dobre wyniki w przewidywaniu na raz wielu kroków może dać KNN (znalazłem paper, który go chwali). Na krótkiej historii można bardzo dokładnie dostroić hiperparametry modelu. Do dłuższych też go można użyć, ale wtedy strojenie hiperparametrów jest słabe, bo jest wykonalne tylko na części szeregu. Co więcej jakość modelu powinna być dużo słabsza z uwagi na ograniczenia pamięci w przetrzymywaniu poprzednich elementów (element to para ciągów: części wejściowej o długości okna szeregu rozmiaru D do porównywania z obecnym oknem szeregu i następującej po niej części o długości oczekiwanej predykcji). Tutaj nie pomogą nawet, dostępne w sieci, implementacje oparte o kd-drzewa (kd-drzewa w przypadku wielowymiarowych elementów są bezużyteczne, poza tym nie można w takiej strukturze danych trzymać zbyt wielu elementów). Natomiast dla długiego ciągu ma sens zrobić predykcję jak dla krótkiego.
+Z modelami sieci neuronowych jest ten problem, że nie ma sensownych benchamarków dla wielokrokowej predykcji szeregów czasowych. Co najwyżej są artykuły dotyczące konkretnych zastosowań, gdzie rozmiary i struktura sieci ściśle zależą od zaobserwowanych przez twórcę wzorców sezonowości. Mógłbym więc wziąć sam kilka prostych modeli, które widziałem w publikacjach i artykułach internetowych. Zrobić im tuning hiperparametrów i przetestować wyniki zebranych przeze mnie danych. Te modele to:
+prosty model z jednym lub dwoma LSTM-a, dropoutem i FC, przewidujący tylko następny wyraz szeregu, więc trzeba by było powtórzyć n razy predykcję karmiąc model jego własnymi wynikami (widziałem go w artykule o wielokrokowej predykcji jednowymiarowego szeregu czasowego);
+prosty model z jednym lub dwoma LSTM-a, dropoutem i FC, przewidujący na raz wektor n wyrazów (widziałem go w paru miejscach w tym w jednej publikacji o wielokrokowej predykcji jednowymiarowego szeregu czasowego);
+dla kompletności sprawdziłbym wyniki analogicznych modeli z konwolucjami;
+problem z powyższymi prostymi modelami jest taki, że one są bardzo czułe na dobór hiperparametrów należy to robić ręcznie lub gridsearchem dla konkretnego szeregu czasowego (nawet dla prostych ciągów jak sinus, zbyt mała lub zbyt duża liczba parametrów powoduje słabą predykcję).
+natomiast pierwszym obiecującym modelem, który chciałbym przetestować jest wspomniany już model oparty o LSTM-y z wydzielonym autoencoderem (Uber). Oczywiście nie oryginalny model Ubera tylko jego wariację (widziałem podobne wariacje w kilku miejscach).
